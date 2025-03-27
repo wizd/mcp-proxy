@@ -48,12 +48,6 @@ type SSEServerConfig struct {
 	Version string `json:"version"`
 }
 
-type MCPGroup struct {
-	Name   string
-	Client client.MCPClient
-	Server *server.SSEServer
-}
-
 type Config struct {
 	Server  SSEServerConfig            `json:"server"`
 	Clients map[string]MCPClientConfig `json:"clients"`
