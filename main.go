@@ -58,9 +58,14 @@ type Config struct {
 }
 
 func main() {
-	conf := flag.String("config", "config.json", "path to config file")
+	conf := flag.String("config", "config.json", "path to config file or a http(s) url")
 	version := flag.Bool("version", false, "print version and exit")
+	help := flag.Bool("help", false, "print help and exit")
 	flag.Parse()
+	if *help {
+		flag.Usage()
+		return
+	}
 	if *version {
 		fmt.Println(BuildVersion)
 		return
