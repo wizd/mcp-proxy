@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/TBXark/confstore"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -40,8 +41,9 @@ const (
 )
 
 type MCPClientConfig struct {
-	Type   MCPClientType   `json:"type"`
-	Config json.RawMessage `json:"config"`
+	Type           MCPClientType   `json:"type"`
+	Config         json.RawMessage `json:"config"`
+	PanicIfInvalid bool            `json:"panicIfInvalid"`
 }
 type SSEServerConfig struct {
 	BaseURL string `json:"baseURL"`
@@ -63,7 +65,7 @@ func main() {
 		fmt.Println(BuildVersion)
 		return
 	}
-	config, err := loadConfig(*conf)
+	config, err := confstore.Load[Config](*conf)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
@@ -101,7 +103,11 @@ func start(config *Config) {
 			server.WithBasePath(name),
 		)
 		errorGroup.Go(func() error {
-			return addClient(ctx, info, mcpClient, mcpServer)
+			addErr := addClient(ctx, info, mcpClient, mcpServer)
+			if addErr != nil && clientConfig.PanicIfInvalid {
+				return addErr
+			}
+			return nil
 		})
 		httpMux.Handle(fmt.Sprintf("/%s/", name), sseServer)
 		httpServer.RegisterOnShutdown(func() {
@@ -136,19 +142,6 @@ func start(config *Config) {
 	if err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
-}
-
-func loadConfig(filePath string) (*Config, error) {
-	file, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-	var config Config
-	err = json.Unmarshal(file, &config)
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
 }
 
 func parseMCPClientConfig(conf MCPClientConfig) (any, error) {
