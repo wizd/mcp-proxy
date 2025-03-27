@@ -74,17 +74,12 @@ func start(config *Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigChan
-		log.Printf("Received signal: %v", sig)
-		cancel()
-	}()
-
-	httpMux := http.NewServeMux()
 	var errorGroup errgroup.Group
-	var groups []MCPGroup
+	httpMux := http.NewServeMux()
+	httpServer := &http.Server{
+		Addr:    config.Server.Addr,
+		Handler: httpMux,
+	}
 	info := mcp.Implementation{
 		Name:    config.Server.Name,
 		Version: config.Server.Version,
@@ -108,32 +103,37 @@ func start(config *Config) {
 			return addClient(ctx, info, mcpClient, mcpServer)
 		})
 		httpMux.Handle(fmt.Sprintf("/%s/", name), sseServer)
-		groups = append(groups, MCPGroup{
-			Name:   name,
-			Client: mcpClient,
-			Server: sseServer,
+		httpServer.RegisterOnShutdown(func() {
+			log.Printf("Closing client %s", name)
+			_ = mcpClient.Close()
 		})
 	}
-	defer func() {
-		for _, c := range groups {
-			_ = c.Client.Close()
-		}
-	}()
 	err := errorGroup.Wait()
 	if err != nil {
 		log.Fatalf("Failed to add clients: %v", err)
 	}
 
-	log.Printf("Starting SSE server")
-	log.Printf("SSE server listening on %s", config.Server.Addr)
+	go func() {
+		log.Printf("Starting SSE server")
+		log.Printf("SSE server listening on %s", config.Server.Addr)
+		hErr := httpServer.ListenAndServe()
+		if hErr != nil && !errors.Is(hErr, http.ErrServerClosed) {
+			log.Fatalf("Failed to start server: %v", hErr)
+		}
+	}()
 
-	httpServer := &http.Server{
-		Addr:    config.Server.Addr,
-		Handler: httpMux,
-	}
-	err = httpServer.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("Failed to start server: %v", err)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigChan
+	log.Println("Shutdown signal received")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer shutdownCancel()
+
+	err = httpServer.Shutdown(shutdownCtx)
+	if err != nil {
+		log.Printf("Server shutdown error: %v", err)
 	}
 }
 
