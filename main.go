@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"golang.org/x/sync/errgroup"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -46,6 +48,12 @@ type SSEServerConfig struct {
 	Version string `json:"version"`
 }
 
+type MCPGroup struct {
+	Name   string
+	Client client.MCPClient
+	Server *server.SSEServer
+}
+
 type Config struct {
 	Server  SSEServerConfig            `json:"server"`
 	Clients map[string]MCPClientConfig `json:"clients"`
@@ -62,11 +70,6 @@ func main() {
 }
 
 func start(config *Config) {
-	mcpServer := server.NewMCPServer(
-		config.Server.Name,
-		config.Server.Addr,
-		server.WithResourceCapabilities(true, true),
-	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -79,8 +82,9 @@ func start(config *Config) {
 		cancel()
 	}()
 
+	httpMux := http.NewServeMux()
 	var errorGroup errgroup.Group
-	var clients []client.MCPClient
+	var groups []MCPGroup
 	info := mcp.Implementation{
 		Name:    config.Server.Name,
 		Version: config.Server.Version,
@@ -91,26 +95,45 @@ func start(config *Config) {
 		if err != nil {
 			log.Fatalf("Failed to create MCP client: %v", err)
 		}
-		clients = append(clients, mcpClient)
+		mcpServer := server.NewMCPServer(
+			config.Server.Name,
+			config.Server.Version,
+			server.WithResourceCapabilities(true, true),
+		)
+		sseServer := server.NewSSEServer(mcpServer,
+			server.WithBaseURL(config.Server.BaseURL),
+			server.WithBasePath(name),
+		)
 		errorGroup.Go(func() error {
 			return addClient(ctx, info, mcpClient, mcpServer)
 		})
+		httpMux.Handle(fmt.Sprintf("/%s/", name), sseServer)
+		groups = append(groups, MCPGroup{
+			Name:   name,
+			Client: mcpClient,
+			Server: sseServer,
+		})
 	}
 	defer func() {
-		for _, c := range clients {
-			_ = c.Close()
+		for _, c := range groups {
+			_ = c.Client.Close()
 		}
 	}()
 	err := errorGroup.Wait()
 	if err != nil {
 		log.Fatalf("Failed to add clients: %v", err)
 	}
-	sseServer := server.NewSSEServer(mcpServer, server.WithBaseURL(config.Server.BaseURL))
+
 	log.Printf("Starting SSE server")
 	log.Printf("SSE server listening on %s", config.Server.Addr)
-	err = sseServer.Start(config.Server.Addr)
-	if err != nil {
-		log.Fatalf("Failed to start SSE server: %v", err)
+
+	httpServer := &http.Server{
+		Addr:    config.Server.Addr,
+		Handler: httpMux,
+	}
+	err = httpServer.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
 

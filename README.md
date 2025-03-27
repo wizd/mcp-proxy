@@ -45,7 +45,7 @@ The server is configured using a JSON file. Below is an example configuration:
     "amap": {
       "type": "sse",
       "config": {
-        "baseURL": "https://router.mcp.so/sse/xxxxx",
+        "baseURL": "https://router.mcp.so/sse/xxxxx"
       }
     }
   }
@@ -70,6 +70,7 @@ The server is configured using a JSON file. Below is an example configuration:
    ```
 
 2. The server will start and aggregate the tools and capabilities of the configured MCP clients.
+3. You can access the server at the specified address (e.g., `http://localhost:8880/fetch/sse`).
 
 
 ### Thanks
