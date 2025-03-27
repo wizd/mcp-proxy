@@ -10,7 +10,7 @@
         "type": "stdio",
         "config": {
           "command": "uvx",
-          "env": [],
+          "env": {},
           "args": ["mcp-server-fetch"]
         }
       }

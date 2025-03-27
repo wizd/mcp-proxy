@@ -19,13 +19,13 @@ import (
 )
 
 type StdioMCPClientConfig struct {
-	Command string   `json:"command"`
-	Env     []string `json:"env"`
-	Args    []string `json:"args"`
+	Command string            `json:"command"`
+	Env     map[string]string `json:"env"`
+	Args    []string          `json:"args"`
 }
 
 type SSEMCPClientConfig struct {
-	BaseURL string            `json:"baseURL"`
+	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers"`
 	Timeout int64             `json:"timeout"`
 }
@@ -172,7 +172,11 @@ func newMCPClient(conf MCPClientConfig) (client.MCPClient, error) {
 	}
 	switch v := clientInfo.(type) {
 	case StdioMCPClientConfig:
-		return client.NewStdioMCPClient(v.Command, v.Env, v.Args...)
+		envs := make([]string, 0, len(v.Env))
+		for kk, vv := range v.Env {
+			envs = append(envs, fmt.Sprintf("%s=%s", kk, vv))
+		}
+		return client.NewStdioMCPClient(v.Command, envs, v.Args...)
 	case SSEMCPClientConfig:
 		var options []client.ClientOption
 		if v.Timeout > 0 {
@@ -181,7 +185,7 @@ func newMCPClient(conf MCPClientConfig) (client.MCPClient, error) {
 		if len(v.Headers) > 0 {
 			options = append(options, client.WithHeaders(v.Headers))
 		}
-		return client.NewSSEMCPClient(v.BaseURL, options...)
+		return client.NewSSEMCPClient(v.URL, options...)
 	}
 	return nil, errors.New("invalid client type")
 }

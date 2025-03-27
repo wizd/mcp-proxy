@@ -38,14 +38,14 @@ The server is configured using a JSON file. Below is an example configuration:
       "type": "stdio",
       "config": {
         "command": "uvx",
-        "env": [],
+        "env": {},
         "args": ["mcp-server-fetch"]
       }
     },
     "amap": {
       "type": "sse",
       "config": {
-        "baseURL": "https://router.mcp.so/sse/xxxxx"
+        "url": "https://router.mcp.so/sse/xxxxx"
       }
     }
   }
