@@ -15,6 +15,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/mcp-proxy /usr/local/bin/mcp-proxy
+COPY --from=builder /app/mcp-proxy /main
 ENTRYPOINT ["/main"]
 CMD ["--config", "/config/config.json"]
