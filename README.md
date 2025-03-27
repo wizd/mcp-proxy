@@ -24,6 +24,7 @@ go install github.com/TBXark/mcp-proxy@latest
 ````
 
 ### Docker
+> The Docker image supports two MCP calling methods by default: `npx` and `uvx`.
 ```bash
 docker run -d -p 8080:8080 -v /path/to/config.json:/config/config.json ghcr.io/tbxark/mcp-proxy:latest
 ```
@@ -83,7 +84,7 @@ Usage of mcp-proxy:
 2. You can access the server at the specified address (e.g., `http://localhost:8880/fetch/sse`).
 3. If you are worried about URL leakage, you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
 
-### Thanks
+## Thanks
 
 This project was inspired by the [adamwattis/mcp-proxy-server](https://github.com/adamwattis/mcp-proxy-server) project
 
