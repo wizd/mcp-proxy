@@ -10,16 +10,17 @@ An MCP proxy server that aggregates and serves multiple MCP resource servers thr
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
+### Build from Source
+ ```bash
    git clone https://github.com/TBXark/mcp-proxy.git
    cd mcp-proxy
-   ```
-
-2. Build the project:
-   ```bash
    go build -o mcp-proxy main.go
-   ```
+   ./mcp-proxy --config path/to/config.json
+```
+### Docker
+```bash
+docker run -d -p 8080:8080 -v /path/to/config.json:/config/config.json ghcr.io/tbxark/mcp-proxy:latest
+```
 
 ## Configuration
 
@@ -64,20 +65,14 @@ The server is configured using a JSON file. Below is an example configuration:
 
 ## Usage
 
-1. Run the server:
-   ```bash
-   ./mcp-proxy -config path/to/config.json
-   ```
-
+1. Run the server, config path support both local file and http url.
 2. The server will start and aggregate the tools and capabilities of the configured MCP clients.
 3. You can access the server at the specified address (e.g., `http://localhost:8880/fetch/sse`).
-
+4. If you are worried about URL leakage, you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
 
 ### Thanks
 
 This project was inspired by the [adamwattis/mcp-proxy-server](https://github.com/adamwattis/mcp-proxy-server) project
-
-
 
 ## License
 
