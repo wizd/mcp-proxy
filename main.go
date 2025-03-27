@@ -211,6 +211,7 @@ func addClient(ctx context.Context, clientInfo mcp.Implementation, mcpClient cli
 			select {
 			case <-ctx.Done():
 				log.Printf("Context done, stopping ping")
+				break
 			case <-ticker.C:
 				_ = mcpClient.Ping(ctx)
 			}
