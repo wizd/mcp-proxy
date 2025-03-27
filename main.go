@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+var BuildVersion = "dev"
+
 type StdioMCPClientConfig struct {
 	Command string            `json:"command"`
 	Env     map[string]string `json:"env"`
@@ -55,7 +57,12 @@ type Config struct {
 
 func main() {
 	conf := flag.String("config", "config.json", "path to config file")
+	version := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+	if *version {
+		fmt.Println(BuildVersion)
+		return
+	}
 	config, err := loadConfig(*conf)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)

@@ -1,0 +1,7 @@
+services:
+  app:
+    image: ghcr.io/tbxark/mac-proxy:latest
+    pull_policy: always
+    volumes:
+      - ./config.json:/config/config.json
+    restart: always
