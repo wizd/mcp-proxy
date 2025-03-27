@@ -192,6 +192,8 @@ func addClient(ctx context.Context, clientInfo mcp.Implementation, mcpClient cli
 		defer ticker.Stop()
 		for {
 			select {
+			case <-ctx.Done():
+				log.Printf("Context done, stopping ping")
 			case <-ticker.C:
 				_ = mcpClient.Ping(ctx)
 			}
