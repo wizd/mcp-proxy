@@ -11,6 +11,7 @@ An MCP proxy server that aggregates and serves multiple MCP resource servers thr
 ## Installation
 
 ### Build from Source
+
  ```bash
 git clone https://github.com/TBXark/mcp-proxy.git
 cd mcp-proxy
@@ -19,14 +20,16 @@ go build -o mcp-proxy main.go
 ```
 
 ### Install by go
+
 ```bash
 go install github.com/TBXark/mcp-proxy@latest
 ````
 
 ### Docker
+
 > The Docker image supports two MCP calling methods by default: `npx` and `uvx`.
 ```bash
-docker run -d -p 8080:8080 -v /path/to/config.json:/config/config.json ghcr.io/tbxark/mcp-proxy:latest
+docker run -d -p 9090:9090 -v /path/to/config.json:/config/config.json ghcr.io/tbxark/mcp-proxy:latest
 ```
 
 ## Configuration
@@ -39,7 +42,10 @@ The server is configured using a JSON file. Below is an example configuration:
         "baseURL": "http://localhost:9090", 
         "addr": ":9090", 
         "name": "MCP Proxy", 
-        "version": "1.0.0" 
+        "version": "1.0.0",
+        "globalAuthTokens": [ 
+            "AdminToken" 
+        ]
     }, 
     "clients": { 
         "fetch": { 
@@ -74,6 +80,7 @@ The server is configured using a JSON file. Below is an example configuration:
   - `addr`: The address the server listens on.
   - `name`: The name of the server.
   - `version`: The version of the server.
+  - `globalAuthTokens`: A list of global authentication tokens for the server. The `Authorization` header will be checked against this list.
 
 - **Clients Configuration**:
   - `type`: The type of the client (`stdio` or `sse`).
@@ -83,6 +90,7 @@ The server is configured using a JSON file. Below is an example configuration:
   - `authTokens`: A list of authentication tokens for the client. `Authorization` header will be checked against this list.
 
 ## Usage
+
 ```
 Usage of mcp-proxy:
   -config string
@@ -93,7 +101,7 @@ Usage of mcp-proxy:
         print version and exit
 ```
 1. The server will start and aggregate the tools and capabilities of the configured MCP clients.
-2. You can access the server at the specified address (e.g., `http://localhost:8880/fetch/sse`).
+2. You can access the server at the specified address (e.g., `http://localhost:9090/fetch/sse`).
 3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
 
 ## Thanks

@@ -49,10 +49,11 @@ type MCPClientConfig struct {
 	AuthTokens     []string        `json:"authTokens"`
 }
 type SSEServerConfig struct {
-	BaseURL string `json:"baseURL"`
-	Addr    string `json:"addr"`
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	BaseURL          string   `json:"baseURL"`
+	Addr             string   `json:"addr"`
+	Name             string   `json:"name"`
+	Version          string   `json:"version"`
+	GlobalAuthTokens []string `json:"globalAuthTokens"`
 }
 
 type Config struct {
@@ -125,7 +126,10 @@ func start(config *Config) {
 			log.Printf("<%s> Connected", name)
 			return nil
 		})
-		httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(sseServer, newAuthMiddleware(clientConfig.AuthTokens)))
+		tokens := make([]string, 0, len(clientConfig.AuthTokens)+len(config.Server.GlobalAuthTokens))
+		tokens = append(tokens, clientConfig.AuthTokens...)
+		tokens = append(tokens, config.Server.GlobalAuthTokens...)
+		httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(sseServer, newAuthMiddleware(tokens)))
 		httpServer.RegisterOnShutdown(func() {
 			log.Printf("Closing client %s", name)
 			_ = mcpClient.Close()

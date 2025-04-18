@@ -3,7 +3,10 @@
     "baseURL": "http://localhost:9090",
     "addr": ":9090",
     "name": "MCP Proxy",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "globalAuthTokens": [
+      "AdminToken"
+    ]
   },
   "clients": {
     "fetch": {
