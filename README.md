@@ -33,7 +33,7 @@ docker run -d -p 8080:8080 -v /path/to/config.json:/config/config.json ghcr.io/t
 
 The server is configured using a JSON file. Below is an example configuration:
 
-```json
+```jsonc
 {
   "server": {
     "baseURL": "http://localhost:8080",
@@ -61,7 +61,7 @@ The server is configured using a JSON file. Below is an example configuration:
 ```
 
 - **Server Configuration**:
-  - `baseURL`: The base URL for the SSE server.
+  - `baseURL`: The public accessible URL of the server.
   - `addr`: The address the server listens on.
   - `name`: The name of the server.
   - `version`: The version of the server.

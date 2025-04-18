@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/TBXark/confstore"
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"golang.org/x/sync/errgroup"
@@ -30,7 +31,6 @@ type StdioMCPClientConfig struct {
 type SSEMCPClientConfig struct {
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers"`
-	Timeout int64             `json:"timeout"`
 }
 
 type MCPClientType string
@@ -44,6 +44,7 @@ type MCPClientConfig struct {
 	Type           MCPClientType   `json:"type"`
 	Config         json.RawMessage `json:"config"`
 	PanicIfInvalid bool            `json:"panicIfInvalid"`
+	LogEnabled     bool            `json:"logEnabled"`
 }
 type SSEServerConfig struct {
 	BaseURL string `json:"baseURL"`
@@ -98,10 +99,17 @@ func start(config *Config) {
 		if err != nil {
 			log.Fatalf("Failed to create MCP client: %v", err)
 		}
+		serverOpts := []server.ServerOption{
+			server.WithResourceCapabilities(true, true),
+			server.WithRecovery(),
+		}
+		if clientConfig.LogEnabled {
+			serverOpts = append(serverOpts, server.WithLogging())
+		}
 		mcpServer := server.NewMCPServer(
 			config.Server.Name,
 			config.Server.Version,
-			server.WithResourceCapabilities(true, true),
+			serverOpts...,
 		)
 		sseServer := server.NewSSEServer(mcpServer,
 			server.WithBaseURL(config.Server.BaseURL),
@@ -183,10 +191,7 @@ func newMCPClient(conf MCPClientConfig) (client.MCPClient, error) {
 		}
 		return client.NewStdioMCPClient(v.Command, envs, v.Args...)
 	case SSEMCPClientConfig:
-		var options []client.ClientOption
-		if v.Timeout > 0 {
-			options = append(options, client.WithSSEReadTimeout(time.Duration(v.Timeout)*time.Second))
-		}
+		var options []transport.ClientOption
 		if len(v.Headers) > 0 {
 			options = append(options, client.WithHeaders(v.Headers))
 		}
