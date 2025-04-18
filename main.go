@@ -94,8 +94,7 @@ func start(config *Config) {
 		Version: config.Server.Version,
 	}
 	for name, clientConfig := range config.Clients {
-		log.Printf("Connecting to %s", name)
-		mcpClient, err := newMCPClient(clientConfig)
+		mcpClient, err := newMCPClient(name, clientConfig)
 		if err != nil {
 			log.Fatalf("Failed to create MCP client: %v", err)
 		}
@@ -116,10 +115,12 @@ func start(config *Config) {
 			server.WithBasePath(name),
 		)
 		errorGroup.Go(func() error {
-			addErr := addClient(ctx, info, mcpClient, mcpServer)
+			log.Printf("<%s> Connecting", name)
+			addErr := mcpClient.addToMCPServer(ctx, info, mcpServer)
 			if addErr != nil && clientConfig.PanicIfInvalid {
 				return addErr
 			}
+			log.Printf("<%s> Connected", name)
 			return nil
 		})
 		httpMux.Handle(fmt.Sprintf("/%s/", name), sseServer)
@@ -128,11 +129,12 @@ func start(config *Config) {
 			_ = mcpClient.Close()
 		})
 	}
-	err := errorGroup.Wait()
-	if err != nil {
-		log.Fatalf("Failed to add clients: %v", err)
-	}
-
+	go func() {
+		err := errorGroup.Wait()
+		if err != nil {
+			log.Fatalf("Failed to add clients: %v", err)
+		}
+	}()
 	go func() {
 		log.Printf("Starting SSE server")
 		log.Printf("SSE server listening on %s", config.Server.Addr)
@@ -141,7 +143,6 @@ func start(config *Config) {
 			log.Fatalf("Failed to start server: %v", hErr)
 		}
 	}()
-
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -151,8 +152,7 @@ func start(config *Config) {
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer shutdownCancel()
 
-	err = httpServer.Shutdown(shutdownCtx)
-	if err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
 }
@@ -178,7 +178,13 @@ func parseMCPClientConfig(conf MCPClientConfig) (any, error) {
 	}
 }
 
-func newMCPClient(conf MCPClientConfig) (client.MCPClient, error) {
+type Client struct {
+	name     string
+	needPing bool
+	client   client.MCPClient
+}
+
+func newMCPClient(name string, conf MCPClientConfig) (*Client, error) {
 	clientInfo, pErr := parseMCPClientConfig(conf)
 	if pErr != nil {
 		return nil, pErr
@@ -189,62 +195,85 @@ func newMCPClient(conf MCPClientConfig) (client.MCPClient, error) {
 		for kk, vv := range v.Env {
 			envs = append(envs, fmt.Sprintf("%s=%s", kk, vv))
 		}
-		return client.NewStdioMCPClient(v.Command, envs, v.Args...)
+		mcpClient, err := client.NewStdioMCPClient(v.Command, envs, v.Args...)
+		if err != nil {
+			return nil, err
+		}
+		return &Client{
+			name:   name,
+			client: mcpClient,
+		}, nil
+
 	case SSEMCPClientConfig:
 		var options []transport.ClientOption
 		if len(v.Headers) > 0 {
 			options = append(options, client.WithHeaders(v.Headers))
 		}
-		return client.NewSSEMCPClient(v.URL, options...)
+		mcpClient, err := client.NewSSEMCPClient(v.URL, options...)
+		if err != nil {
+			return nil, err
+		}
+		return &Client{
+			name:     name,
+			needPing: true,
+			client:   mcpClient,
+		}, nil
 	}
 	return nil, errors.New("invalid client type")
 }
 
-func addClient(ctx context.Context, clientInfo mcp.Implementation, mcpClient client.MCPClient, mcpServer *server.MCPServer) error {
+func (c *Client) addToMCPServer(ctx context.Context, clientInfo mcp.Implementation, mcpServer *server.MCPServer) error {
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = clientInfo
-	_, err := mcpClient.Initialize(ctx, initRequest)
+	_, err := c.client.Initialize(ctx, initRequest)
 	if err != nil {
 		return err
 	}
-	log.Printf("Successfully initialized MCP client")
+	log.Printf("<%s> Successfully initialized MCP client", c.name)
 
-	err = addClientToolsToServer(ctx, mcpClient, mcpServer)
+	err = c.addToolsToServer(ctx, mcpServer)
 	if err != nil {
 		return err
 	}
-	_ = addClientPromptsToServer(ctx, mcpClient, mcpServer)
-	_ = addClientResourcesToServer(ctx, mcpClient, mcpServer)
-	_ = addClientResourceTemplatesToServer(ctx, mcpClient, mcpServer)
+	_ = c.addPromptsToServer(ctx, mcpServer)
+	_ = c.addResourcesToServer(ctx, mcpServer)
+	_ = c.addResourceTemplatesToServer(ctx, mcpServer)
 
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				log.Printf("Context done, stopping ping")
-				break
-			case <-ticker.C:
-				_ = mcpClient.Ping(ctx)
-			}
-		}
-	}()
+	if c.needPing {
+		go c.startPingTask(ctx)
+	}
 	return nil
 }
 
-func addClientToolsToServer(ctx context.Context, mcpClient client.MCPClient, mcpServer *server.MCPServer) error {
+func (c *Client) startPingTask(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("<%s> Context done, stopping ping", c.name)
+			break
+		case <-ticker.C:
+			_ = c.client.Ping(ctx)
+		}
+	}
+}
+
+func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServer) error {
 	toolsRequest := mcp.ListToolsRequest{}
 	for {
-		tools, err := mcpClient.ListTools(ctx, toolsRequest)
+		tools, err := c.client.ListTools(ctx, toolsRequest)
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully listed %d tools", len(tools.Tools))
+		if len(tools.Tools) == 0 {
+			break
+		}
+		log.Printf("<%s> Successfully listed %d tools", c.name, len(tools.Tools))
 		for _, tool := range tools.Tools {
-			log.Printf("Adding tool %s", tool.Name)
-			mcpServer.AddTool(tool, mcpClient.CallTool)
+			log.Printf("<%s> Adding tool %s", c.name, tool.Name)
+			mcpServer.AddTool(tool, c.client.CallTool)
 		}
 		if tools.NextCursor == "" {
 			break
@@ -254,17 +283,20 @@ func addClientToolsToServer(ctx context.Context, mcpClient client.MCPClient, mcp
 	return nil
 }
 
-func addClientPromptsToServer(ctx context.Context, mcpClient client.MCPClient, mcpServer *server.MCPServer) error {
+func (c *Client) addPromptsToServer(ctx context.Context, mcpServer *server.MCPServer) error {
 	promptsRequest := mcp.ListPromptsRequest{}
 	for {
-		prompts, err := mcpClient.ListPrompts(ctx, promptsRequest)
+		prompts, err := c.client.ListPrompts(ctx, promptsRequest)
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully listed %d prompts", len(prompts.Prompts))
+		if len(prompts.Prompts) == 0 {
+			break
+		}
+		log.Printf("<%s> Successfully listed %d prompts", c.name, len(prompts.Prompts))
 		for _, prompt := range prompts.Prompts {
-			log.Printf("Adding prompt %s", prompt.Name)
-			mcpServer.AddPrompt(prompt, mcpClient.GetPrompt)
+			log.Printf("<%s> Adding prompt %s", c.name, prompt.Name)
+			mcpServer.AddPrompt(prompt, c.client.GetPrompt)
 		}
 		if prompts.NextCursor == "" {
 			break
@@ -274,18 +306,21 @@ func addClientPromptsToServer(ctx context.Context, mcpClient client.MCPClient, m
 	return nil
 }
 
-func addClientResourcesToServer(ctx context.Context, mcpClient client.MCPClient, mcpServer *server.MCPServer) error {
+func (c *Client) addResourcesToServer(ctx context.Context, mcpServer *server.MCPServer) error {
 	resourcesRequest := mcp.ListResourcesRequest{}
 	for {
-		resources, err := mcpClient.ListResources(ctx, resourcesRequest)
+		resources, err := c.client.ListResources(ctx, resourcesRequest)
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully listed %d resources", len(resources.Resources))
+		if len(resources.Resources) == 0 {
+			break
+		}
+		log.Printf("<%s> Successfully listed %d resources", c.name, len(resources.Resources))
 		for _, resource := range resources.Resources {
-			log.Printf("Adding resource %s", resource.Name)
+			log.Printf("<%s> Adding resource %s", c.name, resource.Name)
 			mcpServer.AddResource(resource, func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-				readResource, e := mcpClient.ReadResource(ctx, request)
+				readResource, e := c.client.ReadResource(ctx, request)
 				if e != nil {
 					return nil, e
 				}
@@ -301,18 +336,21 @@ func addClientResourcesToServer(ctx context.Context, mcpClient client.MCPClient,
 	return nil
 }
 
-func addClientResourceTemplatesToServer(ctx context.Context, mcpClient client.MCPClient, mcpServer *server.MCPServer) error {
+func (c *Client) addResourceTemplatesToServer(ctx context.Context, mcpServer *server.MCPServer) error {
 	resourceTemplatesRequest := mcp.ListResourceTemplatesRequest{}
 	for {
-		resourceTemplates, err := mcpClient.ListResourceTemplates(ctx, resourceTemplatesRequest)
+		resourceTemplates, err := c.client.ListResourceTemplates(ctx, resourceTemplatesRequest)
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully listed %d resource templates", len(resourceTemplates.ResourceTemplates))
+		if len(resourceTemplates.ResourceTemplates) == 0 {
+			break
+		}
+		log.Printf("<%s> Successfully listed %d resource templates", c.name, len(resourceTemplates.ResourceTemplates))
 		for _, resourceTemplate := range resourceTemplates.ResourceTemplates {
-			log.Printf("Adding resource template %s", resourceTemplate.Name)
+			log.Printf("<%s> Adding resource template %s", c.name, resourceTemplate.Name)
 			mcpServer.AddResourceTemplate(resourceTemplate, func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-				readResource, e := mcpClient.ReadResource(ctx, request)
+				readResource, e := c.client.ReadResource(ctx, request)
 				if e != nil {
 					return nil, e
 				}
@@ -323,6 +361,13 @@ func addClientResourceTemplatesToServer(ctx context.Context, mcpClient client.MC
 			break
 		}
 		resourceTemplatesRequest.PaginatedRequest.Params.Cursor = resourceTemplates.NextCursor
+	}
+	return nil
+}
+
+func (c *Client) Close() error {
+	if c.client != nil {
+		return c.client.Close()
 	}
 	return nil
 }
