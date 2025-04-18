@@ -135,12 +135,10 @@ func start(config *Config) {
 			_ = mcpClient.Close()
 		})
 	}
-	go func() {
-		err := errorGroup.Wait()
-		if err != nil {
-			log.Fatalf("Failed to add clients: %v", err)
-		}
-	}()
+	err := errorGroup.Wait()
+	if err != nil {
+		log.Fatalf("Failed to add clients: %v", err)
+	}
 	go func() {
 		log.Printf("Starting SSE server")
 		log.Printf("SSE server listening on %s", config.Server.Addr)

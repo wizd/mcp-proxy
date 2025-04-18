@@ -12,11 +12,12 @@
     "fetch": {
       "type": "stdio",
       "config": {
-        "command": "uvx",
+        "command": "npx",
         "env": {
         },
         "args": [
-          "mcp-server-fetch"
+          "-y",
+          "fetch-mcp"
         ]
       },
       "panicIfInvalid": true,
