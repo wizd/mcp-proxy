@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -45,6 +46,7 @@ type MCPClientConfig struct {
 	Config         json.RawMessage `json:"config"`
 	PanicIfInvalid bool            `json:"panicIfInvalid"`
 	LogEnabled     bool            `json:"logEnabled"`
+	AuthTokens     []string        `json:"authTokens"`
 }
 type SSEServerConfig struct {
 	BaseURL string `json:"baseURL"`
@@ -123,7 +125,7 @@ func start(config *Config) {
 			log.Printf("<%s> Connected", name)
 			return nil
 		})
-		httpMux.Handle(fmt.Sprintf("/%s/", name), sseServer)
+		httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(sseServer, newAuthMiddleware(clientConfig.AuthTokens)))
 		httpServer.RegisterOnShutdown(func() {
 			log.Printf("Closing client %s", name)
 			_ = mcpClient.Close()
@@ -370,4 +372,39 @@ func (c *Client) Close() error {
 		return c.client.Close()
 	}
 	return nil
+}
+
+type MiddlewareFunc func(http.Handler) http.Handler
+
+func chainMiddleware(h http.Handler, middlewares ...MiddlewareFunc) http.Handler {
+	for _, mw := range middlewares {
+		h = mw(h)
+	}
+	return h
+}
+
+func newAuthMiddleware(tokens []string) MiddlewareFunc {
+	tokenSet := make(map[string]struct{}, len(tokens))
+	for _, token := range tokens {
+		tokenSet[token] = struct{}{}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if len(tokens) != 0 {
+				token := r.Header.Get("Authorization")
+				if strings.HasPrefix(token, "Bearer ") {
+					token = strings.TrimPrefix(token, "Bearer ")
+				}
+				if token == "" {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+				if _, ok := tokenSet[token]; !ok {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

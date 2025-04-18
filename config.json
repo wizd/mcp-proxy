@@ -1,18 +1,33 @@
 {
-    "server": {
-      "baseURL": "http://localhost:8880",
-      "addr": ":8880",
-      "name": "MCP Proxy",
-      "version": "1.0.0"
+  "server": {
+    "baseURL": "http://localhost:9090",
+    "addr": ":9090",
+    "name": "MCP Proxy",
+    "version": "1.0.0"
+  },
+  "clients": {
+    "fetch": {
+      "type": "stdio",
+      "config": {
+        "command": "uvx",
+        "env": {
+        },
+        "args": [
+          "mcp-server-fetch"
+        ]
+      },
+      "panicIfInvalid": true,
+      "logEnabled": true,
+      "authTokens": [
+        "HelloWorld"
+      ]
     },
-    "clients": {
-      "fetch": {
-        "type": "stdio",
-        "config": {
-          "command": "uvx",
-          "env": {},
-          "args": ["mcp-server-fetch"]
-        }
+    "amap": {
+      "type": "sse",
+      "panicIfInvalid": false,
+      "config": {
+        "url": "https://router.mcp.so/sse/xxxxx"
       }
     }
   }
+}

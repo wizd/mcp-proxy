@@ -34,29 +34,38 @@ docker run -d -p 8080:8080 -v /path/to/config.json:/config/config.json ghcr.io/t
 The server is configured using a JSON file. Below is an example configuration:
 
 ```jsonc
-{
-  "server": {
-    "baseURL": "http://localhost:8080",
-    "addr": ":8080",
-    "name": "MCP Proxy",
-    "version": "1.0.0"
-  },
-  "clients": {
-    "fetch": {
-      "type": "stdio",
-      "config": {
-        "command": "uvx",
-        "env": {},
-        "args": ["mcp-server-fetch"]
-      }
-    },
-    "amap": {
-      "type": "sse",
-      "config": {
-        "url": "https://router.mcp.so/sse/xxxxx"
-      }
-    }
-  }
+{ 
+    "server": { 
+        "baseURL": "http://localhost:9090", 
+        "addr": ":9090", 
+        "name": "MCP Proxy", 
+        "version": "1.0.0" 
+    }, 
+    "clients": { 
+        "fetch": { 
+            "type": "stdio", 
+            "config": { 
+                "command": "uvx", 
+                "env": {
+                }, 
+                "args": [
+                    "mcp-server-fetch"
+                ] 
+            }, 
+            "panicIfInvalid": true, 
+            "logEnabled": true, 
+            "authTokens": [ 
+                "HelloWorld" 
+            ] 
+        }, 
+        "amap": { 
+            "type": "sse", 
+            "panicIfInvalid": false, 
+            "config": { 
+                "url": "https://router.mcp.so/sse/xxxxx" 
+            } 
+        } 
+    } 
 }
 ```
 
@@ -69,6 +78,9 @@ The server is configured using a JSON file. Below is an example configuration:
 - **Clients Configuration**:
   - `type`: The type of the client (`stdio` or `sse`).
   - `config`: The specific configuration for the client type.
+  - `panicIfInvalid`: If true, the server will panic if the client is invalid.
+  - `logEnabled`: If true, the server will log the client's requests.
+  - `authTokens`: A list of authentication tokens for the client. `Authorization` header will be checked against this list.
 
 ## Usage
 ```
@@ -82,7 +94,7 @@ Usage of mcp-proxy:
 ```
 1. The server will start and aggregate the tools and capabilities of the configured MCP clients.
 2. You can access the server at the specified address (e.g., `http://localhost:8880/fetch/sse`).
-3. If you are worried about URL leakage, you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
+3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
 
 ## Thanks
 
