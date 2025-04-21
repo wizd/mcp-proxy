@@ -39,7 +39,7 @@ The server is configured using a JSON file. Below is an example configuration:
 ```jsonc
 { 
     "server": { 
-        "baseURL": "http://localhost:9090", 
+        "baseURL": "https://my-mcp.example.com", 
         "addr": ":9090", 
         "name": "MCP Proxy", 
         "version": "1.0.0",
@@ -48,12 +48,11 @@ The server is configured using a JSON file. Below is an example configuration:
         ]
     }, 
     "clients": { 
-        "fetch": { 
-            "type": "stdio", 
-            "config": { 
+        "fetch": {
+            "type": "stdio",
+            "config": {
                 "command": "uvx", 
-                "env": {
-                }, 
+                "env": {}, 
                 "args": [
                     "mcp-server-fetch"
                 ] 
@@ -76,7 +75,7 @@ The server is configured using a JSON file. Below is an example configuration:
 ```
 
 - **Server Configuration**:
-  - `baseURL`: The public accessible URL of the server.
+  - `baseURL`: The public accessible URL of the server. This is used to generate the URLs for the clients.
   - `addr`: The address the server listens on.
   - `name`: The name of the server.
   - `version`: The version of the server.
@@ -84,7 +83,7 @@ The server is configured using a JSON file. Below is an example configuration:
 
 - **Clients Configuration**:
   - `type`: The type of the client (`stdio` or `sse`).
-  - `config`: The specific configuration for the client type.
+  - `config`: The specific configuration for the client type, This part is consistent with the configuration of other MCP clients.
   - `panicIfInvalid`: If true, the server will panic if the client is invalid.
   - `logEnabled`: If true, the server will log the client's requests.
   - `authTokens`: A list of authentication tokens for the client. `Authorization` header will be checked against this list.
