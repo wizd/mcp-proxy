@@ -31,6 +31,11 @@ go install github.com/TBXark/mcp-proxy@latest
 ```bash
 docker run -d -p 9090:9090 -v /path/to/config.json:/config/config.json ghcr.io/tbxark/mcp-proxy:latest
 ```
+or 
+
+```bash
+docker run -d -p 9090:9090 ghcr.io/tbxark/mcp-proxy:latest --config https://example.com/path/to/config.json
+```
 
 ## Configuration
 
@@ -100,7 +105,7 @@ Usage of mcp-proxy:
         print version and exit
 ```
 1. The server will start and aggregate the tools and capabilities of the configured MCP clients.
-2. You can access the server at the specified address (e.g., `http://localhost:9090/fetch/sse`).
+2. You can access the server at `http(s)://{baseURL}/{clientName}/sse`. (e.g., `https://my-mcp.example.com/fetch/sse`, based on the example configuration)
 3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
 
 ## Thanks
