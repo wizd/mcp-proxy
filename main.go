@@ -101,44 +101,39 @@ func start(config *Config) {
 		if err != nil {
 			log.Fatalf("Failed to create MCP client: %v", err)
 		}
-		serverOpts := []server.ServerOption{
-			server.WithResourceCapabilities(true, true),
-			server.WithRecovery(),
-		}
-		if clientConfig.LogEnabled {
-			serverOpts = append(serverOpts, server.WithLogging())
-		}
-		mcpServer := server.NewMCPServer(
-			config.Server.Name,
-			config.Server.Version,
-			serverOpts...,
-		)
-		sseServer := server.NewSSEServer(mcpServer,
-			server.WithBaseURL(config.Server.BaseURL),
-			server.WithBasePath(name),
-		)
-		errorGroup.Go(func() error {
-			log.Printf("<%s> Connecting", name)
-			addErr := mcpClient.addToMCPServer(ctx, info, mcpServer)
-			if addErr != nil && clientConfig.PanicIfInvalid {
-				return addErr
-			}
-			log.Printf("<%s> Connected", name)
-			return nil
-		})
+		mcpServer, sseServer := newMCPServer(name, config, clientConfig)
+
 		tokens := make([]string, 0, len(clientConfig.AuthTokens)+len(config.Server.GlobalAuthTokens))
 		tokens = append(tokens, clientConfig.AuthTokens...)
 		tokens = append(tokens, config.Server.GlobalAuthTokens...)
-		httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(sseServer, newAuthMiddleware(tokens)))
-		httpServer.RegisterOnShutdown(func() {
-			log.Printf("Closing client %s", name)
-			_ = mcpClient.Close()
+
+		errorGroup.Go(func() error {
+			log.Printf("<%s> Connecting", name)
+			addErr := mcpClient.addToMCPServer(ctx, info, mcpServer)
+			if addErr != nil {
+				if clientConfig.PanicIfInvalid {
+					return addErr
+				}
+				return nil
+			}
+			log.Printf("<%s> Connected", name)
+			httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(sseServer, newAuthMiddleware(tokens)))
+			httpServer.RegisterOnShutdown(func() {
+				log.Printf("Closing client %s", name)
+				_ = mcpClient.Close()
+			})
+			return nil
 		})
 	}
-	err := errorGroup.Wait()
-	if err != nil {
-		log.Fatalf("Failed to add clients: %v", err)
-	}
+
+	go func() {
+		err := errorGroup.Wait()
+		if err != nil {
+			log.Fatalf("Failed to add clients: %v", err)
+		}
+		log.Printf("All clients initialized")
+	}()
+
 	go func() {
 		log.Printf("Starting SSE server")
 		log.Printf("SSE server listening on %s", config.Server.Addr)
@@ -147,6 +142,7 @@ func start(config *Config) {
 			log.Fatalf("Failed to start server: %v", hErr)
 		}
 	}()
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -156,9 +152,16 @@ func start(config *Config) {
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer shutdownCancel()
 
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+	err := httpServer.Shutdown(shutdownCtx)
+	if err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
+}
+
+type Client struct {
+	name     string
+	needPing bool
+	client   client.MCPClient
 }
 
 func parseMCPClientConfig(conf MCPClientConfig) (any, error) {
@@ -182,10 +185,24 @@ func parseMCPClientConfig(conf MCPClientConfig) (any, error) {
 	}
 }
 
-type Client struct {
-	name     string
-	needPing bool
-	client   client.MCPClient
+func newMCPServer(name string, config *Config, clientConfig MCPClientConfig) (*server.MCPServer, *server.SSEServer) {
+	serverOpts := []server.ServerOption{
+		server.WithResourceCapabilities(true, true),
+		server.WithRecovery(),
+	}
+	if clientConfig.LogEnabled {
+		serverOpts = append(serverOpts, server.WithLogging())
+	}
+	mcpServer := server.NewMCPServer(
+		config.Server.Name,
+		config.Server.Version,
+		serverOpts...,
+	)
+	sseServer := server.NewSSEServer(mcpServer,
+		server.WithBaseURL(config.Server.BaseURL),
+		server.WithBasePath(name),
+	)
+	return mcpServer, sseServer
 }
 
 func newMCPClient(name string, conf MCPClientConfig) (*Client, error) {
