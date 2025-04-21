@@ -96,10 +96,11 @@ func start(config *Config) {
 		Name:    config.Server.Name,
 		Version: config.Server.Version,
 	}
+
 	for name, clientConfig := range config.Clients {
 		mcpClient, err := newMCPClient(name, clientConfig)
 		if err != nil {
-			log.Fatalf("Failed to create MCP client: %v", err)
+			log.Fatalf("<%s> Failed to create client: %v", name, err)
 		}
 		mcpServer, sseServer := newMCPServer(name, config, clientConfig)
 
@@ -119,7 +120,7 @@ func start(config *Config) {
 			log.Printf("<%s> Connected", name)
 			httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(sseServer, newAuthMiddleware(tokens)))
 			httpServer.RegisterOnShutdown(func() {
-				log.Printf("Closing client %s", name)
+				log.Printf("<%s> Shutting down", name)
 				_ = mcpClient.Close()
 			})
 			return nil
