@@ -112,6 +112,7 @@ func start(config *Config) {
 			log.Printf("<%s> Connecting", name)
 			addErr := mcpClient.addToMCPServer(ctx, info, mcpServer)
 			if addErr != nil {
+				log.Printf("<%s> Failed to add client to server: %v", name, addErr)
 				if clientConfig.PanicIfInvalid {
 					return addErr
 				}

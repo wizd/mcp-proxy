@@ -4,4 +4,6 @@ services:
     pull_policy: always
     volumes:
       - ./config.json:/config/config.json
+    ports:
+      - "9090:9090"
     restart: always
