@@ -123,15 +123,15 @@ func parseMCPClientConfigV2(conf *MCPClientConfigV2) (any, error) {
 	}
 	if conf.URL != "" {
 		if conf.TransportType == MCPClientTypeStreamable {
-			return &SSEMCPClientConfig{
-				URL:     conf.URL,
-				Headers: conf.Headers,
-			}, nil
-		} else {
 			return &StreamableMCPClientConfig{
 				URL:     conf.URL,
 				Headers: conf.Headers,
 				Timeout: conf.Timeout,
+			}, nil
+		} else {
+			return &SSEMCPClientConfig{
+				URL:     conf.URL,
+				Headers: conf.Headers,
 			}, nil
 		}
 	}

@@ -71,8 +71,15 @@ The server is configured using a JSON file. Below is an example configuration:
         ]
       }
     },
-    "exampleServer": {
-      "url": "https://example.com/mcp-sse",
+    "sseServer": {
+      "url": "https://example.com/sse",
+      "headers":  {
+        "Authorization": "Bearer example-token"
+      }
+    },
+    "streamableHttpServer": {
+      "transportType": "streamable-http",
+      "url": "https://example.com/mcp",
       "headers":  {
         "Authorization": "Bearer example-token"
       }
