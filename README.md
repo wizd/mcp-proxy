@@ -97,7 +97,7 @@ Proxy HTTP server configuration
 - `addr`: The address the server listens on.
 - `name`: The name of the server.
 - `version`: The version of the server.
-- `options`: Global options for the server, When `options.authTokens` is set, It will be the global authentication token for all clients. 
+- `options`: Default options for the `mcpServers`.
 
 ### **`mcpServers`**
 MCP server configuration, Adopt the same configuration format as other MCP Clients.
