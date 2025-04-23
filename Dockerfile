@@ -3,7 +3,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o mcp-proxy main.go
+RUN make build
 
 FROM ghcr.io/astral-sh/uv:debian-slim 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -15,6 +15,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/mcp-proxy /main
+COPY --from=builder /app/build/mcp-proxy /main
 ENTRYPOINT ["/main"]
 CMD ["--config", "/config/config.json"]
