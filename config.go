@@ -29,7 +29,7 @@ type MCPClientType string
 const (
 	MCPClientTypeStdio      MCPClientType = "stdio"
 	MCPClientTypeSSE        MCPClientType = "sse"
-	MCPClientTypeStreamable MCPClientType = "streamable"
+	MCPClientTypeStreamable MCPClientType = "streamable-http"
 )
 
 // ---- V1 ----
@@ -95,10 +95,14 @@ type MCPProxyConfigV2 struct {
 }
 
 type MCPClientConfigV2 struct {
+	TransportType MCPClientType `json:"transportType,omitempty"`
+
+	// Stdio
 	Command string            `json:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
 
+	// SSE or Streamable HTTP
 	URL     string            `json:"url,omitempty"`
 	Headers map[string]string `json:"headers,omitempty"`
 	Timeout time.Duration     `json:"timeout,omitempty"`
@@ -107,20 +111,31 @@ type MCPClientConfigV2 struct {
 }
 
 func parseMCPClientConfigV2(conf *MCPClientConfigV2) (any, error) {
-	if conf.URL != "" {
-		return &SSEMCPClientConfig{
-			URL:     conf.URL,
-			Headers: conf.Headers,
-		}, nil
-	} else if conf.Command != "" {
+	if conf.Command != "" || conf.TransportType == MCPClientTypeStdio {
+		if conf.Command == "" {
+			return nil, errors.New("command is required for stdio transport")
+		}
 		return &StdioMCPClientConfig{
 			Command: conf.Command,
 			Env:     conf.Env,
 			Args:    conf.Args,
 		}, nil
-	} else {
-		return nil, errors.New("invalid server type")
 	}
+	if conf.URL != "" {
+		if conf.TransportType == MCPClientTypeStreamable {
+			return &SSEMCPClientConfig{
+				URL:     conf.URL,
+				Headers: conf.Headers,
+			}, nil
+		} else {
+			return &StreamableMCPClientConfig{
+				URL:     conf.URL,
+				Headers: conf.Headers,
+				Timeout: conf.Timeout,
+			}, nil
+		}
+	}
+	return nil, errors.New("invalid server type")
 }
 
 // ---- Config ----

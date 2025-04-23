@@ -101,6 +101,10 @@ Proxy HTTP server configuration
 
 ### **`mcpServers`**
 MCP server configuration, Adopt the same configuration format as other MCP Clients.
+- `transportType`: The transport type of the MCP client. Except for `streamable-http`, which requires manual configuration, the rest will be automatically configured according to the content of the configuration file.
+  - `stdio`: The MCP client is a command line tool that is run in a subprocess.
+  - `sse`: The MCP client is a server that supports SSE (Server-Sent Events).
+  - `streamable-http`: The MCP client is a server that supports HTTP streaming.
 
 For stdio mcp servers, the `command` field is required.
 - `command`: The command to run the MCP client.
@@ -108,11 +112,16 @@ For stdio mcp servers, the `command` field is required.
 - `env`: The environment variables to set for the command.
 - `options`: Options specific to the client.
 
-For sse mcp servers, the `url` field is required. 
+For sse mcp servers, the `url` field is required. It is recommended to set `transportType` to `sse`.
+
 - `url`: The URL of the MCP client.
 - `headers`: The headers to send with the request to the MCP client.
 
-For http streaming mcp servers, Not supported yet.
+For http streaming mcp servers, the `url` field is required. and `transportType` need to be set to `streamable-http`.
+- `url`: The URL of the MCP client.
+- `headers`: The headers to send with the request to the MCP client.
+- `timeout`: The timeout for the request to the MCP client. 
+
 
 ## Usage
 
