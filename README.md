@@ -30,10 +30,7 @@ go install github.com/TBXark/mcp-proxy@latest
 > The Docker image supports two MCP calling methods by default: `npx` and `uvx`.
 ```bash
 docker run -d -p 9090:9090 -v /path/to/config.json:/config/config.json ghcr.io/tbxark/mcp-proxy:latest
-```
-or 
-
-```bash
+# or 
 docker run -d -p 9090:9090 ghcr.io/tbxark/mcp-proxy:latest --config https://example.com/path/to/config.json
 ```
 
@@ -91,7 +88,7 @@ Common options for `mcpProxy` and `mcpServers`, When `options` in `mcpProxy` is 
 - `authTokens`: A list of authentication tokens for the client. The `Authorization` header will be checked against this list.
 
 ### **`mcpProxy`**
-Proxy Configuration
+Proxy HTTP server configuration
 - `baseURL`: The public accessible URL of the server. This is used to generate the URLs for the clients.
 - `addr`: The address the server listens on.
 - `name`: The name of the server.
@@ -99,14 +96,15 @@ Proxy Configuration
 - `options`: Global options for the server, When `options.authTokens` is set, It will be the global authentication token for all clients. 
 
 ### **`mcpServers`**
-Server Configuration, Adopt the same configuration format as other MCP Clients.
-For stdio mcp servers, the `command` field is required. For SSE clients, the `command` field is optional.
+MCP server configuration, Adopt the same configuration format as other MCP Clients.
+
+For stdio mcp servers, the `command` field is required.
 - `command`: The command to run the MCP client.
 - `args`: The arguments to pass to the command.
 - `env`: The environment variables to set for the command.
 - `options`: Options specific to the client.
 
-For sse mcp servers, the `url` field is required. For stdio clients, the `url` field is optional.
+For sse mcp servers, the `url` field is required. 
 - `url`: The URL of the MCP client.
 - `headers`: The headers to send with the request to the MCP client.
 

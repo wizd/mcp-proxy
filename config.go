@@ -42,6 +42,14 @@ type MCPClientConfigV1 struct {
 	AuthTokens     []string        `json:"authTokens"`
 }
 
+type MCPProxyConfigV1 struct {
+	BaseURL          string   `json:"baseURL"`
+	Addr             string   `json:"addr"`
+	Name             string   `json:"name"`
+	Version          string   `json:"version"`
+	GlobalAuthTokens []string `json:"globalAuthTokens"`
+}
+
 func parseMCPClientConfigV1(conf *MCPClientConfigV1) (any, error) {
 	switch conf.Type {
 	case MCPClientTypeStdio:
@@ -68,14 +76,6 @@ func parseMCPClientConfigV1(conf *MCPClientConfigV1) (any, error) {
 	default:
 		return nil, errors.New("invalid client type")
 	}
-}
-
-type MCPProxyConfigV1 struct {
-	BaseURL          string   `json:"baseURL"`
-	Addr             string   `json:"addr"`
-	Name             string   `json:"name"`
-	Version          string   `json:"version"`
-	GlobalAuthTokens []string `json:"globalAuthTokens"`
 }
 
 // ---- V2 ----
@@ -126,15 +126,19 @@ func parseMCPClientConfigV2(conf *MCPClientConfigV2) (any, error) {
 // ---- Config ----
 
 type Config struct {
-	DeprecatedServerV1  *MCPProxyConfigV1             `json:"server"`
-	DeprecatedClientsV1 map[string]*MCPClientConfigV1 `json:"clients"`
-
 	McpProxy   *MCPProxyConfigV2             `json:"mcpProxy"`
 	McpServers map[string]*MCPClientConfigV2 `json:"mcpServers"`
 }
 
 func load(path string) (*Config, error) {
-	conf, err := confstore.Load[Config](path)
+	type FullConfig struct {
+		DeprecatedServerV1  *MCPProxyConfigV1             `json:"server"`
+		DeprecatedClientsV1 map[string]*MCPClientConfigV1 `json:"clients"`
+
+		McpProxy   *MCPProxyConfigV2             `json:"mcpProxy"`
+		McpServers map[string]*MCPClientConfigV2 `json:"mcpServers"`
+	}
+	conf, err := confstore.Load[FullConfig](path)
 	if err != nil {
 		return nil, err
 	}
@@ -222,5 +226,9 @@ func load(path string) (*Config, error) {
 	// remove deprecated fields
 	conf.DeprecatedServerV1 = nil
 	conf.DeprecatedClientsV1 = nil
-	return conf, nil
+
+	return &Config{
+		McpProxy:   conf.McpProxy,
+		McpServers: conf.McpServers,
+	}, nil
 }
