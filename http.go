@@ -58,26 +58,26 @@ func startHTTPServer(config *Config) {
 	var errorGroup errgroup.Group
 	httpMux := http.NewServeMux()
 	httpServer := &http.Server{
-		Addr:    config.Server.Addr,
+		Addr:    config.McpProxy.Addr,
 		Handler: httpMux,
 	}
 	info := mcp.Implementation{
-		Name:    config.Server.Name,
-		Version: config.Server.Version,
+		Name:    config.McpProxy.Name,
+		Version: config.McpProxy.Version,
 	}
 
-	for name, clientConfig := range config.Clients {
+	for name, clientConfig := range config.McpServers {
 		mcpClient, err := newMCPClient(name, clientConfig)
 		if err != nil {
 			log.Fatalf("<%s> Failed to create client: %v", name, err)
 		}
-		server := newMCPServer(name, &config.Server, &clientConfig)
+		server := newMCPServer(name, config.McpProxy.Version, config.McpProxy.BaseURL, clientConfig)
 		errorGroup.Go(func() error {
 			log.Printf("<%s> Connecting", name)
 			addErr := mcpClient.addToMCPServer(ctx, info, server.mcpServer)
 			if addErr != nil {
 				log.Printf("<%s> Failed to add client to server: %v", name, addErr)
-				if clientConfig.PanicIfInvalid {
+				if *clientConfig.Options.PanicIfInvalid {
 					return addErr
 				}
 				return nil
@@ -102,7 +102,7 @@ func startHTTPServer(config *Config) {
 
 	go func() {
 		log.Printf("Starting SSE server")
-		log.Printf("SSE server listening on %s", config.Server.Addr)
+		log.Printf("SSE server listening on %s", config.McpProxy.Addr)
 		hErr := httpServer.ListenAndServe()
 		if hErr != nil && !errors.Is(hErr, http.ErrServerClosed) {
 			log.Fatalf("Failed to start server: %v", hErr)

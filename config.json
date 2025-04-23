@@ -1,36 +1,38 @@
 {
-  "server": {
+  "mcpProxy": {
     "baseURL": "http://localhost:9090",
     "addr": ":9090",
     "name": "MCP Proxy",
     "version": "1.0.0",
-    "globalAuthTokens": [
-      "AdminToken"
-    ]
-  },
-  "clients": {
-    "fetch": {
-      "type": "stdio",
-      "config": {
-        "command": "npx",
-        "env": {
-        },
-        "args": [
-          "-y",
-          "fetch-mcp"
-        ]
-      },
-      "panicIfInvalid": true,
-      "logEnabled": true,
-      "authTokens": [
-        "HelloWorld"
-      ]
-    },
-    "amap": {
-      "type": "sse",
+    "options": {
       "panicIfInvalid": false,
-      "config": {
-        "url": "https://router.mcp.so/sse/xxxxx"
+      "logEnabled": false,
+      "authTokens": [
+        "AdminToken"
+      ]
+    }
+  },
+  "mcpServers": {
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "fetch-mcp"
+      ],
+      "env": {
+      },
+      "options": {
+        "panicIfInvalid": true,
+        "logEnabled": true,
+        "authTokens": [
+          "HelloWorld"
+        ]
+      }
+    },
+    "exampleServer": {
+      "url": "https://example.com/mcp-sse",
+      "headers":  {
+        "Authorization": "Bearer example-token"
       }
     }
   }

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/TBXark/confstore"
 	"log"
 )
 
@@ -22,7 +21,7 @@ func main() {
 		fmt.Println(BuildVersion)
 		return
 	}
-	config, err := confstore.Load[Config](*conf)
+	config, err := load(*conf)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}

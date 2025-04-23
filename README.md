@@ -40,58 +40,77 @@ docker run -d -p 9090:9090 ghcr.io/tbxark/mcp-proxy:latest --config https://exam
 ## Configuration
 
 The server is configured using a JSON file. Below is an example configuration:
+> This is the format for the new version's configuration. The old version's configuration will be automatically converted to the new format's configuration when it is loaded.
 
 ```jsonc
-{ 
-    "server": { 
-        "baseURL": "https://my-mcp.example.com", 
-        "addr": ":9090", 
-        "name": "MCP Proxy", 
-        "version": "1.0.0",
-        "globalAuthTokens": [ 
-            "AdminToken" 
+{
+  "mcpProxy": {
+    "baseURL": "http://localhost:9090",
+    "addr": ":9090",
+    "name": "MCP Proxy",
+    "version": "1.0.0",
+    "options": {
+      "panicIfInvalid": false,
+      "logEnabled": false,
+      "authTokens": [
+        "AdminToken"
+      ]
+    }
+  },
+  "mcpServers": {
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "fetch-mcp"
+      ],
+      "env": {
+      },
+      "options": {
+        "panicIfInvalid": true,
+        "logEnabled": true,
+        "authTokens": [
+          "HelloWorld"
         ]
-    }, 
-    "clients": { 
-        "fetch": {
-            "type": "stdio",
-            "config": {
-                "command": "uvx", 
-                "env": {}, 
-                "args": [
-                    "mcp-server-fetch"
-                ] 
-            }, 
-            "panicIfInvalid": true, 
-            "logEnabled": true, 
-            "authTokens": [ 
-                "HelloWorld" 
-            ] 
-        }, 
-        "amap": { 
-            "type": "sse", 
-            "panicIfInvalid": false, 
-            "config": { 
-                "url": "https://router.mcp.so/sse/xxxxx" 
-            } 
-        } 
-    } 
+      }
+    },
+    "exampleServer": {
+      "url": "https://example.com/mcp-sse",
+      "headers":  {
+        "Authorization": "Bearer example-token"
+      }
+    }
+  }
 }
 ```
 
-- **Server Configuration**:
-  - `baseURL`: The public accessible URL of the server. This is used to generate the URLs for the clients.
-  - `addr`: The address the server listens on.
-  - `name`: The name of the server.
-  - `version`: The version of the server.
-  - `globalAuthTokens`: A list of global authentication tokens for the server. The `Authorization` header will be checked against this list.
+### **`options`**:
+Common options for `mcpProxy` and `mcpServers`, When `options` in `mcpProxy` is set, it will be the default options for all clients. When `options` fields in `mcpServers` is set, it will override the default options.
+- `panicIfInvalid`: If true, the server will panic if the client is invalid.
+- `logEnabled`: If true, the server will log the client's requests.
+- `authTokens`: A list of authentication tokens for the client. The `Authorization` header will be checked against this list.
 
-- **Clients Configuration**:
-  - `type`: The type of the client (`stdio` or `sse`).
-  - `config`: The specific configuration for the client type, This part is consistent with the configuration of other MCP clients.
-  - `panicIfInvalid`: If true, the server will panic if the client is invalid.
-  - `logEnabled`: If true, the server will log the client's requests.
-  - `authTokens`: A list of authentication tokens for the client. `Authorization` header will be checked against this list.
+### **`mcpProxy`**
+Proxy Configuration
+- `baseURL`: The public accessible URL of the server. This is used to generate the URLs for the clients.
+- `addr`: The address the server listens on.
+- `name`: The name of the server.
+- `version`: The version of the server.
+- `options`: Global options for the server, When `options.authTokens` is set, It will be the global authentication token for all clients. 
+
+### **`mcpServers`**
+Server Configuration, Adopt the same configuration format as other MCP Clients.
+For stdio mcp servers, the `command` field is required. For SSE clients, the `command` field is optional.
+- `command`: The command to run the MCP client.
+- `args`: The arguments to pass to the command.
+- `env`: The environment variables to set for the command.
+- `options`: Options specific to the client.
+
+For sse mcp servers, the `url` field is required. For stdio clients, the `url` field is optional.
+- `url`: The URL of the MCP client.
+- `headers`: The headers to send with the request to the MCP client.
+
+For http streaming mcp servers, Not supported yet.
 
 ## Usage
 

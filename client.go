@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/mark3labs/mcp-go/client"
@@ -19,41 +18,13 @@ type Client struct {
 	client   client.MCPClient
 }
 
-func parseMCPClientConfig(conf MCPClientConfig) (any, error) {
-	switch conf.Type {
-	case MCPClientTypeStdio:
-		var config StdioMCPClientConfig
-		err := json.Unmarshal(conf.Config, &config)
-		if err != nil {
-			return nil, err
-		}
-		return config, nil
-	case MCPClientTypeSSE:
-		var config SSEMCPClientConfig
-		err := json.Unmarshal(conf.Config, &config)
-		if err != nil {
-			return nil, err
-		}
-		return config, nil
-	case MCPClientTypeStreamable:
-		var config StreamableMCPClientConfig
-		err := json.Unmarshal(conf.Config, &config)
-		if err != nil {
-			return nil, err
-		}
-		return config, nil
-	default:
-		return nil, errors.New("invalid client type")
-	}
-}
-
-func newMCPClient(name string, conf MCPClientConfig) (*Client, error) {
-	clientInfo, pErr := parseMCPClientConfig(conf)
+func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
+	clientInfo, pErr := parseMCPClientConfigV2(conf)
 	if pErr != nil {
 		return nil, pErr
 	}
 	switch v := clientInfo.(type) {
-	case StdioMCPClientConfig:
+	case *StdioMCPClientConfig:
 		envs := make([]string, 0, len(v.Env))
 		for kk, vv := range v.Env {
 			envs = append(envs, fmt.Sprintf("%s=%s", kk, vv))
@@ -67,7 +38,7 @@ func newMCPClient(name string, conf MCPClientConfig) (*Client, error) {
 			client: mcpClient,
 		}, nil
 
-	case SSEMCPClientConfig:
+	case *SSEMCPClientConfig:
 		var options []transport.ClientOption
 		if len(v.Headers) > 0 {
 			options = append(options, client.WithHeaders(v.Headers))
@@ -81,7 +52,7 @@ func newMCPClient(name string, conf MCPClientConfig) (*Client, error) {
 			needPing: true,
 			client:   mcpClient,
 		}, nil
-	case StreamableMCPClientConfig:
+	case *StreamableMCPClientConfig:
 		var options []transport.StreamableHTTPCOption
 		if len(v.Headers) > 0 {
 			options = append(options, transport.WithHTTPHeaders(v.Headers))
@@ -263,30 +234,33 @@ type Server struct {
 	sseServer *server.SSEServer
 }
 
-func newMCPServer(name string, serverConfig *SSEServerConfig, clientConfig *MCPClientConfig) *Server {
+func newMCPServer(name, version, baseURL string, clientConfig *MCPClientConfigV2) *Server {
 	serverOpts := []server.ServerOption{
 		server.WithResourceCapabilities(true, true),
 		server.WithRecovery(),
 	}
-	if clientConfig.LogEnabled {
+
+	if *clientConfig.Options.LogEnabled {
 		serverOpts = append(serverOpts, server.WithLogging())
 	}
 	mcpServer := server.NewMCPServer(
 		name,
-		serverConfig.Version,
+		version,
 		serverOpts...,
 	)
 	sseServer := server.NewSSEServer(mcpServer,
 		server.WithBasePath(name),
-		server.WithBaseURL(serverConfig.BaseURL),
+		server.WithBaseURL(baseURL),
 	)
-	tokens := make([]string, 0, len(clientConfig.AuthTokens)+len(serverConfig.GlobalAuthTokens))
-	tokens = append(tokens, clientConfig.AuthTokens...)
-	tokens = append(tokens, serverConfig.GlobalAuthTokens...)
 
-	return &Server{
-		tokens:    tokens,
+	srv := &Server{
 		mcpServer: mcpServer,
 		sseServer: sseServer,
 	}
+
+	if clientConfig.Options != nil && len(clientConfig.Options.AuthTokens) > 0 {
+		srv.tokens = clientConfig.Options.AuthTokens
+	}
+
+	return srv
 }
