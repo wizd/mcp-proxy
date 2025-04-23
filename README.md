@@ -81,11 +81,15 @@ The server is configured using a JSON file. Below is an example configuration:
 }
 ```
 
-### **`options`**:
-Common options for `mcpProxy` and `mcpServers`, When `options` in `mcpProxy` is set, it will be the default options for all clients. When `options` fields in `mcpServers` is set, it will override the default options.
+### **`options`**
+Common options for `mcpProxy` and `mcpServers`.
+
 - `panicIfInvalid`: If true, the server will panic if the client is invalid.
 - `logEnabled`: If true, the server will log the client's requests.
-- `authTokens`: A list of authentication tokens for the client. The `Authorization` header will be checked against this list.
+- `authTokens`: A list of authentication tokens for the client. The `Authorization` header will be checked against this list. 
+
+> In the new configuration, the `authTokens` of `mcpProxy` is not a global authentication token, but rather the default authentication token for `mcpProxy`. When `authTokens` is set in `mcpServers`, the value of `authTokens` in `mcpServers` will be used instead of the value in `mcpProxy`. In other words, the `authTokens` of `mcpProxy` serves as a default value and is only applied when `authTokens` is not set in `mcpServers`.
+> Other fields are the same.
 
 ### **`mcpProxy`**
 Proxy HTTP server configuration
@@ -123,7 +127,7 @@ Usage of mcp-proxy:
 ```
 1. The server will start and aggregate the tools and capabilities of the configured MCP clients.
 2. You can access the server at `http(s)://{baseURL}/{clientName}/sse`. (e.g., `https://my-mcp.example.com/fetch/sse`, based on the example configuration)
-3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to a random string, and then access it via `/random-string/sse`.
+3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to `fetch/{apiKey}`, and then access it via `fetch/{apiKey}`.
 
 ## Thanks
 
