@@ -15,8 +15,8 @@ An MCP proxy server that aggregates and serves multiple MCP resource servers thr
  ```bash
 git clone https://github.com/TBXark/mcp-proxy.git
 cd mcp-proxy
-go build -o mcp-proxy main.go
-./mcp-proxy --config path/to/config.json
+make build
+./build/mcp-proxy --config path/to/config.json
 ```
 
 ### Install by go
