@@ -6,7 +6,7 @@ An MCP proxy server that aggregates and serves multiple MCP resource servers thr
 
 - **Proxy Multiple MCP Clients**: Connects to multiple MCP resource servers and aggregates their tools and capabilities.
 - **SSE Support**: Provides an SSE (Server-Sent Events) server for real-time updates.
-- **Flexible Configuration**: Supports multiple client types (`stdio` and `sse`) with customizable settings.
+- **Flexible Configuration**: Supports multiple client types (`stdio`, `sse` or `streamable-http`) with customizable settings.
 
 ## Installation
 
@@ -119,12 +119,11 @@ For stdio mcp servers, the `command` field is required.
 - `env`: The environment variables to set for the command.
 - `options`: Options specific to the client.
 
-For sse mcp servers, the `url` field is required. It is recommended to set `transportType` to `sse`.
-
+For sse mcp servers, the `url` field is required. When the current `url` exists, `sse` will be automatically configured.
 - `url`: The URL of the MCP client.
 - `headers`: The headers to send with the request to the MCP client.
 
-For http streaming mcp servers, the `url` field is required. and `transportType` need to be set to `streamable-http`.
+For http streaming mcp servers, the `url` field is required. and `transportType` need to manually set to `streamable-http`.
 - `url`: The URL of the MCP client.
 - `headers`: The headers to send with the request to the MCP client.
 - `timeout`: The timeout for the request to the MCP client. 
