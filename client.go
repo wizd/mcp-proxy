@@ -12,15 +12,10 @@ import (
 	"time"
 )
 
-type MCPClient interface {
-	client.MCPClient
-	Start(context.Context) error
-}
-
 type Client struct {
 	name     string
 	needPing bool
-	client   MCPClient
+	client   *client.Client
 }
 
 func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
