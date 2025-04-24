@@ -12,10 +12,15 @@ import (
 	"time"
 )
 
+type MCPClient interface {
+	client.MCPClient
+	Start(context.Context) error
+}
+
 type Client struct {
 	name     string
 	needPing bool
-	client   client.MCPClient
+	client   MCPClient
 }
 
 func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
@@ -33,11 +38,11 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		return &Client{
 			name:   name,
 			client: mcpClient,
 		}, nil
-
 	case *SSEMCPClientConfig:
 		var options []transport.ClientOption
 		if len(v.Headers) > 0 {
@@ -74,6 +79,10 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 }
 
 func (c *Client) addToMCPServer(ctx context.Context, clientInfo mcp.Implementation, mcpServer *server.MCPServer) error {
+	err := c.client.Start(ctx)
+	if err != nil {
+		return err
+	}
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = clientInfo
@@ -82,7 +91,7 @@ func (c *Client) addToMCPServer(ctx context.Context, clientInfo mcp.Implementati
 		Roots:        nil,
 		Sampling:     nil,
 	}
-	_, err := c.client.Initialize(ctx, initRequest)
+	_, err = c.client.Initialize(ctx, initRequest)
 	if err != nil {
 		return err
 	}
