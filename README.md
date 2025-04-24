@@ -71,13 +71,13 @@ The server is configured using a JSON file. Below is an example configuration:
         ]
       }
     },
-    "sseServer": {
+    "sseExample": {
       "url": "https://example.com/sse",
       "headers":  {
         "Authorization": "Bearer example-token"
       }
     },
-    "streamableHttpServer": {
+    "streamableHttpExample": {
       "transportType": "streamable-http",
       "url": "https://example.com/mcp",
       "headers":  {
@@ -147,7 +147,8 @@ Usage of mcp-proxy:
 
 ## Thanks
 
-This project was inspired by the [adamwattis/mcp-proxy-server](https://github.com/adamwattis/mcp-proxy-server) project
+- This project was inspired by the [adamwattis/mcp-proxy-server](https://github.com/adamwattis/mcp-proxy-server) project
+- If you have any questions about deployment, you can refer to  [《在 Docker 沙箱中运行 MCP Server》](https://miantiao.me/posts/guide-to-running-mcp-server-in-a-sandbox/)([@ccbikai](https://github.com/ccbikai))
 
 ## License
 

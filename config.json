@@ -29,13 +29,13 @@
         ]
       }
     },
-    "sseServer": {
+    "sseExample": {
       "url": "https://example.com/sse",
       "headers":  {
         "Authorization": "Bearer example-token"
       }
     },
-    "streamableHttpServer": {
+    "streamableHttpExample": {
       "transportType": "streamable-http",
       "url": "https://example.com/mcp",
       "headers":  {
