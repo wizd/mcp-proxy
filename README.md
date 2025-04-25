@@ -39,6 +39,8 @@ docker run -d -p 9090:9090 ghcr.io/tbxark/mcp-proxy:latest --config https://exam
 The server is configured using a JSON file. Below is an example configuration:
 > This is the format for the new version's configuration. The old version's configuration will be automatically converted to the new format's configuration when it is loaded.
 
+> You can use [`https://tbxark.github.io/mcp-proxy`](https://tbxark.github.io/mcp-proxy) to convert the configuration of `mcp-proxy` into the configuration that `Claude` can use.
+
 ```jsonc
 {
   "mcpProxy": {
