@@ -13,9 +13,10 @@ import (
 )
 
 type Client struct {
-	name     string
-	needPing bool
-	client   *client.Client
+	name            string
+	needPing        bool
+	needManualStart bool
+	client          *client.Client
 }
 
 func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
@@ -48,9 +49,10 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 			return nil, err
 		}
 		return &Client{
-			name:     name,
-			needPing: true,
-			client:   mcpClient,
+			name:            name,
+			needPing:        true,
+			needManualStart: true,
+			client:          mcpClient,
 		}, nil
 	case *StreamableMCPClientConfig:
 		var options []transport.StreamableHTTPCOption
@@ -65,18 +67,21 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 			return nil, err
 		}
 		return &Client{
-			name:     name,
-			needPing: true,
-			client:   mcpClient,
+			name:            name,
+			needPing:        true,
+			needManualStart: true,
+			client:          mcpClient,
 		}, nil
 	}
 	return nil, errors.New("invalid client type")
 }
 
 func (c *Client) addToMCPServer(ctx context.Context, clientInfo mcp.Implementation, mcpServer *server.MCPServer) error {
-	err := c.client.Start(ctx)
-	if err != nil {
-		return err
+	if c.needManualStart {
+		err := c.client.Start(ctx)
+		if err != nil {
+			return err
+		}
 	}
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
@@ -86,7 +91,7 @@ func (c *Client) addToMCPServer(ctx context.Context, clientInfo mcp.Implementati
 		Roots:        nil,
 		Sampling:     nil,
 	}
-	_, err = c.client.Initialize(ctx, initRequest)
+	_, err := c.client.Initialize(ctx, initRequest)
 	if err != nil {
 		return err
 	}
