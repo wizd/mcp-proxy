@@ -1,43 +1,43 @@
 {
   "mcpProxy": {
-    "baseURL": "http://localhost:9090",
+    "baseURL": "https://mcp.example.com",
     "addr": ":9090",
     "name": "MCP Proxy",
     "version": "1.0.0",
     "options": {
       "panicIfInvalid": false,
-      "logEnabled": false,
+      "logEnabled": true,
       "authTokens": [
-        "AdminToken"
+        "DefaultTokens"
       ]
     }
   },
   "mcpServers": {
-    "fetch": {
+    "github": {
       "command": "npx",
       "args": [
         "-y",
-        "fetch-mcp"
+        "@modelcontextprotocol/server-github"
       ],
       "env": {
-      },
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+      }
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
       "options": {
         "panicIfInvalid": true,
-        "logEnabled": true,
+        "logEnabled": false,
         "authTokens": [
-          "HelloWorld"
+          "SpecificTokens"
         ]
       }
     },
-    "amap-amap-sse": {
-      "url": "https://mcp.amap.com/sse?key=您在高德官网上申请的key"
-    },
-    "streamableHttpExample": {
-      "transportType": "streamable-http",
-      "url": "https://example.com/mcp",
-      "headers":  {
-        "Authorization": "Bearer example-token"
-      }
+    "amap": {
+      "url": "https://mcp.amap.com/sse?key=<YOUR_TOKEN>"
     }
   }
 }

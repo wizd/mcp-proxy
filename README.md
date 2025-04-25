@@ -42,47 +42,44 @@ The server is configured using a JSON file. Below is an example configuration:
 ```jsonc
 {
   "mcpProxy": {
-    "baseURL": "http://localhost:9090",
+    "baseURL": "https://mcp.example.com",
     "addr": ":9090",
     "name": "MCP Proxy",
     "version": "1.0.0",
     "options": {
       "panicIfInvalid": false,
-      "logEnabled": false,
+      "logEnabled": true,
       "authTokens": [
-        "AdminToken"
+        "DefaultTokens"
       ]
     }
   },
   "mcpServers": {
-    "fetch": {
+    "github": {
       "command": "npx",
       "args": [
         "-y",
-        "fetch-mcp"
+        "@modelcontextprotocol/server-github"
       ],
       "env": {
-      },
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+      }
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
       "options": {
         "panicIfInvalid": true,
-        "logEnabled": true,
+        "logEnabled": false,
         "authTokens": [
-          "HelloWorld"
+          "SpecificTokens"
         ]
       }
     },
-    "sseExample": {
-      "url": "https://example.com/sse",
-      "headers":  {
-        "Authorization": "Bearer example-token"
-      }
-    },
-    "streamableHttpExample": {
-      "transportType": "streamable-http",
-      "url": "https://example.com/mcp",
-      "headers":  {
-        "Authorization": "Bearer example-token"
-      }
+    "amap": {
+      "url": "https://mcp.amap.com/sse?key=<YOUR_TOKEN>"
     }
   }
 }
@@ -141,8 +138,8 @@ Usage of mcp-proxy:
         print version and exit
 ```
 1. The server will start and aggregate the tools and capabilities of the configured MCP clients.
-2. You can access the server at `http(s)://{baseURL}/{clientName}/sse`. (e.g., `https://my-mcp.example.com/fetch/sse`, based on the example configuration)
-3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to `fetch/{apiKey}`, and then access it via `fetch/{apiKey}`.
+2. You can access the server at `http(s)://{baseURL}/{clientName}/sse`. (e.g., `https://mcp.example.com/fetch/sse`, based on the example configuration)
+3. If your MCP client does not support custom request headers., you can change the key in `clients` such as `fetch` to `fetch/{authToken}`, and then access it via `fetch/{authToken}`.
 
 ## Thanks
 
