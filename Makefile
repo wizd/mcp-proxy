@@ -16,3 +16,14 @@ buildLinuxX86:
 .PHONY: buildImage
 buildImage:
 	docker buildx build --platform=linux/amd64,linux/arm64 -t ghcr.io/tbxark/map-proxy:latest . --push --provenance=false
+
+.PHONY: lint
+lint:
+	golangci-lint run
+
+.PHONY: format
+format:
+	golangci-lint fmt
+	golangci-lint run --fix
+	go fmt ./...
+	go mod tidy

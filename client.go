@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"log"
-	"time"
 )
 
 type Client struct {
@@ -114,11 +115,12 @@ func (c *Client) addToMCPServer(ctx context.Context, clientInfo mcp.Implementati
 func (c *Client) startPingTask(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+PingLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			log.Printf("<%s> Context done, stopping ping", c.name)
-			break
+			break PingLoop
 		case <-ticker.C:
 			_ = c.client.Ping(ctx)
 		}
@@ -143,7 +145,7 @@ func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServ
 		if tools.NextCursor == "" {
 			break
 		}
-		toolsRequest.PaginatedRequest.Params.Cursor = tools.NextCursor
+		toolsRequest.Params.Cursor = tools.NextCursor
 	}
 	return nil
 }
@@ -166,7 +168,7 @@ func (c *Client) addPromptsToServer(ctx context.Context, mcpServer *server.MCPSe
 		if prompts.NextCursor == "" {
 			break
 		}
-		promptsRequest.PaginatedRequest.Params.Cursor = prompts.NextCursor
+		promptsRequest.Params.Cursor = prompts.NextCursor
 	}
 	return nil
 }
@@ -195,7 +197,7 @@ func (c *Client) addResourcesToServer(ctx context.Context, mcpServer *server.MCP
 		if resources.NextCursor == "" {
 			break
 		}
-		resourcesRequest.PaginatedRequest.Params.Cursor = resources.NextCursor
+		resourcesRequest.Params.Cursor = resources.NextCursor
 
 	}
 	return nil
@@ -225,7 +227,7 @@ func (c *Client) addResourceTemplatesToServer(ctx context.Context, mcpServer *se
 		if resourceTemplates.NextCursor == "" {
 			break
 		}
-		resourceTemplatesRequest.PaginatedRequest.Params.Cursor = resourceTemplates.NextCursor
+		resourceTemplatesRequest.Params.Cursor = resourceTemplates.NextCursor
 	}
 	return nil
 }
@@ -249,7 +251,7 @@ func newMCPServer(name, version, baseURL string, clientConfig *MCPClientConfigV2
 		server.WithRecovery(),
 	}
 
-	if *clientConfig.Options.LogEnabled {
+	if clientConfig.Options.LogEnabled.OrElse(false) {
 		serverOpts = append(serverOpts, server.WithLogging())
 	}
 	mcpServer := server.NewMCPServer(

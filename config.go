@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"github.com/TBXark/confstore"
 	"time"
+
+	"github.com/TBXark/confstore"
+	"github.com/TBXark/optional-go"
 )
 
 type StdioMCPClientConfig struct {
@@ -81,9 +83,9 @@ func parseMCPClientConfigV1(conf *MCPClientConfigV1) (any, error) {
 // ---- V2 ----
 
 type OptionsV2 struct {
-	PanicIfInvalid *bool    `json:"panicIfInvalid,omitempty"`
-	LogEnabled     *bool    `json:"logEnabled,omitempty"`
-	AuthTokens     []string `json:"authTokens,omitempty"`
+	PanicIfInvalid optional.Field[bool] `json:"panicIfInvalid,omitempty"`
+	LogEnabled     optional.Field[bool] `json:"logEnabled,omitempty"`
+	AuthTokens     []string             `json:"authTokens,omitempty"`
 }
 
 type MCPProxyConfigV2 struct {
@@ -178,11 +180,8 @@ func load(path string) (*Config, error) {
 			if cErr != nil {
 				continue
 			}
-			falseVal := false
 			options := &OptionsV2{
-				PanicIfInvalid: &falseVal,
-				LogEnabled:     &falseVal,
-				AuthTokens:     clientConfig.AuthTokens,
+				AuthTokens: clientConfig.AuthTokens,
 			}
 			if conf.DeprecatedServerV1 != nil && len(conf.DeprecatedServerV1.GlobalAuthTokens) > 0 {
 				options.AuthTokens = append(options.AuthTokens, conf.DeprecatedServerV1.GlobalAuthTokens...)
@@ -217,11 +216,7 @@ func load(path string) (*Config, error) {
 		return nil, errors.New("mcpProxy is required")
 	}
 	if conf.McpProxy.Options == nil {
-		falseVal := false
-		conf.McpProxy.Options = &OptionsV2{
-			PanicIfInvalid: &falseVal,
-			LogEnabled:     &falseVal,
-		}
+		conf.McpProxy.Options = &OptionsV2{}
 	}
 	for _, clientConfig := range conf.McpServers {
 		if clientConfig.Options == nil {
@@ -230,10 +225,10 @@ func load(path string) (*Config, error) {
 		if clientConfig.Options.AuthTokens == nil {
 			clientConfig.Options.AuthTokens = conf.McpProxy.Options.AuthTokens
 		}
-		if clientConfig.Options.PanicIfInvalid == nil {
+		if !clientConfig.Options.PanicIfInvalid.Present() {
 			clientConfig.Options.PanicIfInvalid = conf.McpProxy.Options.PanicIfInvalid
 		}
-		if clientConfig.Options.LogEnabled == nil {
+		if !clientConfig.Options.LogEnabled.Present() {
 			clientConfig.Options.LogEnabled = conf.McpProxy.Options.LogEnabled
 		}
 	}

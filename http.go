@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/mark3labs/mcp-go/mcp"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +11,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"golang.org/x/sync/errgroup"
 )
 
 type MiddlewareFunc func(http.Handler) http.Handler
@@ -33,9 +34,7 @@ func newAuthMiddleware(tokens []string) MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(tokens) != 0 {
 				token := r.Header.Get("Authorization")
-				if strings.HasPrefix(token, "Bearer ") {
-					token = strings.TrimPrefix(token, "Bearer ")
-				}
+				token = strings.TrimSpace(strings.TrimPrefix(token, "Bearer "))
 				if token == "" {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return
@@ -50,8 +49,30 @@ func newAuthMiddleware(tokens []string) MiddlewareFunc {
 	}
 }
 
-func startHTTPServer(config *Config) {
+func loggerMiddleware(prefix string) MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("<%s> Request [%s] %s", prefix, r.Method, r.URL.Path)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 
+func recoverMiddleware(prefix string) MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("<%s> Recovered from panic: %v", prefix, err)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func startHTTPServer(config *Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -77,13 +98,22 @@ func startHTTPServer(config *Config) {
 			addErr := mcpClient.addToMCPServer(ctx, info, server.mcpServer)
 			if addErr != nil {
 				log.Printf("<%s> Failed to add client to server: %v", name, addErr)
-				if *clientConfig.Options.PanicIfInvalid {
+				if clientConfig.Options.PanicIfInvalid.OrElse(false) {
 					return addErr
 				}
 				return nil
 			}
 			log.Printf("<%s> Connected", name)
-			httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(server.sseServer, newAuthMiddleware(server.tokens)))
+
+			middlewares := make([]MiddlewareFunc, 0)
+			middlewares = append(middlewares, recoverMiddleware(name))
+			if clientConfig.Options.LogEnabled.OrElse(false) {
+				middlewares = append(middlewares, loggerMiddleware(name))
+			}
+			if len(clientConfig.Options.AuthTokens) > 0 {
+				middlewares = append(middlewares, newAuthMiddleware(clientConfig.Options.AuthTokens))
+			}
+			httpMux.Handle(fmt.Sprintf("/%s/", name), chainMiddleware(server.sseServer, middlewares...))
 			httpServer.RegisterOnShutdown(func() {
 				log.Printf("<%s> Shutting down", name)
 				_ = mcpClient.Close()
