@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -18,6 +19,7 @@ type Client struct {
 	needPing        bool
 	needManualStart bool
 	client          *client.Client
+	options         *OptionsV2
 }
 
 func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
@@ -37,8 +39,9 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 		}
 
 		return &Client{
-			name:   name,
-			client: mcpClient,
+			name:    name,
+			client:  mcpClient,
+			options: conf.Options,
 		}, nil
 	case *SSEMCPClientConfig:
 		var options []transport.ClientOption
@@ -54,6 +57,7 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 			needPing:        true,
 			needManualStart: true,
 			client:          mcpClient,
+			options:         conf.Options,
 		}, nil
 	case *StreamableMCPClientConfig:
 		var options []transport.StreamableHTTPCOption
@@ -72,6 +76,7 @@ func newMCPClient(name string, conf *MCPClientConfigV2) (*Client, error) {
 			needPing:        true,
 			needManualStart: true,
 			client:          mcpClient,
+			options:         conf.Options,
 		}, nil
 	}
 	return nil, errors.New("invalid client type")
@@ -129,6 +134,31 @@ PingLoop:
 
 func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServer) error {
 	toolsRequest := mcp.ListToolsRequest{}
+	filterSet := make(map[string]struct{})
+	var filterMode string // Store the validated filter mode
+	applyFilter := false  // Whether to apply filter rules
+
+	if c.options != nil && c.options.ToolFilter != nil && len(c.options.ToolFilter.List) > 0 {
+		// List is provided, now validate the mode explicitly
+		mode := strings.ToLower(c.options.ToolFilter.Mode)
+		if mode == "allow" || mode == "block" {
+			// Mode is valid, prepare to apply filter
+			applyFilter = true
+			filterMode = mode // Store the valid mode
+			for _, toolName := range c.options.ToolFilter.List {
+				filterSet[toolName] = struct{}{}
+			}
+		} else {
+			// Mode is missing or invalid, ignore the filter configuration
+			if c.options.ToolFilter.Mode == "" {
+				log.Printf("<%s> WARNING: toolFilter list provided but mode is missing. Ignoring toolFilter configuration for this server. Mode must be 'allow' or 'block'.", c.name)
+			} else {
+				log.Printf("<%s> WARNING: Invalid toolFilter mode '%s' provided. Ignoring toolFilter configuration for this server. Mode must be 'allow' or 'block'.", c.name, c.options.ToolFilter.Mode)
+			}
+			// applyFilter remains false
+		}
+	}
+
 	for {
 		tools, err := c.client.ListTools(ctx, toolsRequest)
 		if err != nil {
@@ -139,8 +169,31 @@ func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServ
 		}
 		log.Printf("<%s> Successfully listed %d tools", c.name, len(tools.Tools))
 		for _, tool := range tools.Tools {
-			log.Printf("<%s> Adding tool %s", c.name, tool.Name)
-			mcpServer.AddTool(tool, c.client.CallTool)
+			shouldAdd := true // Default to adding the tool
+
+			if applyFilter { // Only apply filter rules if applyFilter is true
+				_, inList := filterSet[tool.Name]
+				if filterMode == "allow" {
+					if !inList {
+						shouldAdd = false
+					}
+				} else { // filterMode == "block" (already validated)
+					if inList {
+						shouldAdd = false
+					}
+				}
+			}
+
+			if shouldAdd {
+				log.Printf("<%s> Adding tool %s", c.name, tool.Name)
+				mcpServer.AddTool(tool, c.client.CallTool)
+			} else if applyFilter { // Log skip reason only if filtering was applied and caused the skip
+				if filterMode == "allow" {
+					log.Printf("<%s> Skipping tool %s (not in allowlist)", c.name, tool.Name)
+				} else { // filterMode == "block"
+					log.Printf("<%s> Skipping blocked tool %s", c.name, tool.Name)
+				}
+			}
 		}
 		if tools.NextCursor == "" {
 			break
