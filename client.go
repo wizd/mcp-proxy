@@ -134,28 +134,35 @@ PingLoop:
 
 func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServer) error {
 	toolsRequest := mcp.ListToolsRequest{}
-	filterSet := make(map[string]struct{})
-	var filterMode string // Store the validated filter mode
-	applyFilter := false  // Whether to apply filter rules
+	filterFunc := func(toolName string) bool {
+		return true
+	}
 
 	if c.options != nil && c.options.ToolFilter != nil && len(c.options.ToolFilter.List) > 0 {
-		// List is provided, now validate the mode explicitly
-		mode := strings.ToLower(c.options.ToolFilter.Mode)
-		if mode == "allow" || mode == "block" {
-			// Mode is valid, prepare to apply filter
-			applyFilter = true
-			filterMode = mode // Store the valid mode
-			for _, toolName := range c.options.ToolFilter.List {
-				filterSet[toolName] = struct{}{}
+		filterSet := make(map[string]struct{})
+		mode := ToolFilterMode(strings.ToLower(string(c.options.ToolFilter.Mode)))
+		for _, toolName := range c.options.ToolFilter.List {
+			filterSet[toolName] = struct{}{}
+		}
+		switch mode {
+		case ToolFilterModeAllow:
+			filterFunc = func(toolName string) bool {
+				_, inList := filterSet[toolName]
+				if !inList {
+					log.Printf("<%s> Ignoring tool %s as it is not in allow list", c.name, toolName)
+				}
+				return inList
 			}
-		} else {
-			// Mode is missing or invalid, ignore the filter configuration
-			if c.options.ToolFilter.Mode == "" {
-				log.Printf("<%s> WARNING: toolFilter list provided but mode is missing. Ignoring toolFilter configuration for this server. Mode must be 'allow' or 'block'.", c.name)
-			} else {
-				log.Printf("<%s> WARNING: Invalid toolFilter mode '%s' provided. Ignoring toolFilter configuration for this server. Mode must be 'allow' or 'block'.", c.name, c.options.ToolFilter.Mode)
+		case ToolFilterModeBlock:
+			filterFunc = func(toolName string) bool {
+				_, inList := filterSet[toolName]
+				if inList {
+					log.Printf("<%s> Ignoring tool %s as it is in block list", c.name, toolName)
+				}
+				return !inList
 			}
-			// applyFilter remains false
+		default:
+			log.Printf("<%s> Unknown tool filter mode: %s, skipping tool filter", c.name, mode)
 		}
 	}
 
@@ -169,30 +176,9 @@ func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServ
 		}
 		log.Printf("<%s> Successfully listed %d tools", c.name, len(tools.Tools))
 		for _, tool := range tools.Tools {
-			shouldAdd := true // Default to adding the tool
-
-			if applyFilter { // Only apply filter rules if applyFilter is true
-				_, inList := filterSet[tool.Name]
-				if filterMode == "allow" {
-					if !inList {
-						shouldAdd = false
-					}
-				} else { // filterMode == "block" (already validated)
-					if inList {
-						shouldAdd = false
-					}
-				}
-			}
-
-			if shouldAdd {
+			if filterFunc(tool.Name) {
 				log.Printf("<%s> Adding tool %s", c.name, tool.Name)
 				mcpServer.AddTool(tool, c.client.CallTool)
-			} else if applyFilter { // Log skip reason only if filtering was applied and caused the skip
-				if filterMode == "allow" {
-					log.Printf("<%s> Skipping tool %s (not in allowlist)", c.name, tool.Name)
-				} else { // filterMode == "block"
-					log.Printf("<%s> Skipping blocked tool %s", c.name, tool.Name)
-				}
 			}
 		}
 		if tools.NextCursor == "" {
@@ -200,6 +186,7 @@ func (c *Client) addToolsToServer(ctx context.Context, mcpServer *server.MCPServ
 		}
 		toolsRequest.Params.Cursor = tools.NextCursor
 	}
+
 	return nil
 }
 
