@@ -1,0 +1,23 @@
+{
+  "mcpProxy": {
+    "baseURL": "http://localhost:9091",
+    "addr": ":9090",
+    "name": "MCP Proxy",
+    "version": "1.0.0",
+    "options": {
+      "panicIfInvalid": false,
+      "logEnabled": true,
+      "authTokens": [
+        "DefaultTokens"
+      ]
+    }
+  },
+  "mcpServers": {
+    "video-extraction": {
+      "command": "uvx",
+      "args": [
+        "mcp-video-extraction"
+      ]
+    }
+  }
+}
